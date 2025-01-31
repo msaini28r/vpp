@@ -1,0 +1,71 @@
+name: Build VPP Images
+
+on:
+  push:
+    branches: 
+      - master
+  pull_request:
+    branches: 
+      - master
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  build-vpp-images:
+    name: "VPP ${{ matrix.tag }}"
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_REPO: fdio/vpp
+      REPO: ${{ matrix.repo }}
+      TAG: ${{ matrix.tag }}
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ['master', 'latest', '24.06', '24.02', '23.10', '23.06']
+        include:
+        - tag: 'master'
+          repo: 'master'
+        - tag: 'latest'
+          repo: 'release'
+        - tag: '24.06'
+          repo: '2406'
+        - tag: '24.02'
+          repo: '2402'
+        - tag: '23.10'
+          repo: '2310'
+        - tag: '23.06'
+          repo: '2306'
+
+    steps:
+    - name: "Checkout Repository"
+      uses: actions/checkout@v3
+
+    - name: "Set Up Dependencies"
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y make gcc g++ python3 curl gnupg ca-certificates apt-transport-https iproute2 iputils-ping
+
+    - name: "Build VPP from Source"
+      run: |
+        make install-dep
+        make build-release
+
+    - name: "Build Docker Image"
+      run: |
+        docker build --build-arg REPO="$REPO" --tag "$DOCKER_REPO:$TAG" .
+        docker run --rm "$DOCKER_REPO:$TAG" dpkg-query -f '${Version}' -W vpp
+
+    - name: "Publish Image to Docker Hub"
+      if: github.event_name != 'pull_request'
+      run: |
+        export VPP_VERSION=$(docker run --rm "$DOCKER_REPO:$TAG" cat /vpp/version | cut -d'~' -f1,2 | sed -e 's/~/./g')
+        docker tag "$DOCKER_REPO:$TAG" "$DOCKER_REPO:$VPP_VERSION"
+        docker images "$DOCKER_REPO"
+        if [ "$GITHUB_EVENT_NAME" == "schedule" ] && curl -sSflL "https://index.docker.io/v1/repositories/$DOCKER_REPO/tags/$VPP_VERSION" >/dev/null; then
+          echo "Image $DOCKER_REPO:$VPP_VERSION is already published."
+        else
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          docker push "$DOCKER_REPO:$VPP_VERSION"
+          docker push "$DOCKER_REPO:$TAG"
+        fi
