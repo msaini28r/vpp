@@ -1,32 +1,28 @@
-# Use the official Ubuntu as the base image
 FROM ubuntu:22.04
 
-# Set the working directory to /vpp
-WORKDIR /vpp
-
-# Install dependencies and setup the VPP installation repository
+# Install necessary dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     gnupg \
     iproute2 \
     iputils-ping \
-    lsb-release \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -fsSL https://packagecloud.io/install/repositories/fdio/release/script.deb.sh | bash
-
-# Install VPP (with the correct version)
-RUN curl -fsSL https://packagecloud.io/fdio/release/gpgkey | apt-key add - \
-    && apt-get update \
-    && apt-get install -y vpp=24.10-release vpp-plugin-core=24.10-release vpp-plugin-dpdk=24.10-release \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a directory for logs
+# Set working directory to /vpp
+WORKDIR /vpp
+
+# Copy all .deb packages into the container
+COPY *.deb ./
+
+# Install .deb packages
+RUN set -eux; \
+    apt-get update && apt-get install -y -V ./*.deb; \
+    dpkg-query -f '${Version}\n' -W vpp > /vpp/version; \
+    rm -rf /var/lib/apt/lists/*;
+
+# Create directory for logs
 RUN mkdir -p /var/log/vpp
 
-# Copy any local files or configurations to the container (if needed)
-# COPY . .
-
-# Set the default command to start VPP
+# Set the default command to run VPP with the startup config
 CMD ["/usr/bin/vpp", "-c", "/etc/vpp/startup.conf"]

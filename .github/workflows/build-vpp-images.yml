@@ -3,65 +3,49 @@ name: Build and Deploy VPP Docker Image
 on:
   push:
     branches:
-      - main  # Trigger the workflow on push to the 'main' branch
+      - main
   pull_request:
     branches:
-      - main  # Trigger the workflow on PRs to the 'main' branch
+      - main
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # Default Ubuntu version for the job
-
-    strategy:
-      matrix:
-        ubuntu-version: [20.04, 22.04, 23.04]  # Add multiple Ubuntu versions here
-
+    runs-on: ubuntu-22.04
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-    - name: Cache Docker layers
-      uses: actions/cache@v2
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-buildx-
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
-    - name: Build Docker image on Ubuntu ${{ matrix.ubuntu-version }}
-      run: |
-        docker build --file Dockerfile --tag vpp-image-${{ matrix.ubuntu-version }} .
+      - name: Build Docker Image
+        run: |
+          docker build --file Dockerfile --tag my-vpp-image .
 
-    - name: Push Docker image to Docker Hub
-      run: |
-        docker tag vpp-image-${{ matrix.ubuntu-version }} your-dockerhub-username/vpp-image:${{ matrix.ubuntu-version }}
-        docker push your-dockerhub-username/vpp-image:${{ matrix.ubuntu-version }}
+      - name: Push Docker Image
+        run: |
+          docker tag my-vpp-image my-docker-repo/my-vpp-image:latest
+          docker push my-docker-repo/my-vpp-image:latest
 
-    - name: Clean up Docker
-      run: docker system prune -f
-
-  deploy:
-    runs-on: ubuntu-22.04  # Default Ubuntu version for deployment
-
-    strategy:
-      matrix:
-        ubuntu-version: [20.04, 22.04, 23.04]  # Add multiple Ubuntu versions here
-
+  test:
+    runs-on: ubuntu-22.04
+    needs: build
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Pull Docker image
-      run: |
-        docker pull your-dockerhub-username/vpp-image:${{ matrix.ubuntu-version }}
-
-    - name: Run Docker container
-      run: |
-        docker run -d --name vpp-container-${{ matrix.ubuntu-version }} your-dockerhub-username/vpp-image:${{ matrix.ubuntu-version }}
-
-    - name: Verify VPP container is running
-      run: |
-        docker ps | grep vpp-container-${{ matrix.ubuntu-version }}
+      - name: Run Docker container for testing
+        run: |
+          docker run -d --name vpp-container my-docker-repo/my-vpp-image:latest
+          docker exec vpp-container vpp -c /etc/vpp/startup.conf
+          docker logs vpp-container
+          docker stop vpp-container
+          docker rm vpp-container
