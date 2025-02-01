@@ -1,17 +1,19 @@
-name: Build and Push VPP Docker Image
+name: Build and Push Docker Image
 
 on:
   push:
+    branches:
+      - master
+  pull_request:
     branches:
       - master
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        ubuntu_version: [20.04, 22.04, 24.04] # Different Ubuntu versions
+        ubuntu_version: [20.04, 22.04, 24.04]  # Build for multiple Ubuntu versions
 
     steps:
       - name: Checkout repository
@@ -26,11 +28,11 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile
+          build-args: UBUNTU_VERSION=${{ matrix.ubuntu_version }}
           push: true
-          tags: my-dockerhub-username/vpp:${{ matrix.ubuntu_version }}
-          build-args: |
-            UBUNTU_VERSION=${{ matrix.ubuntu_version }}
+          tags: yourdockerhubusername/vpp:${{ matrix.ubuntu_version }}
