@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        ubuntu_version: [20.04, 22.04, 24.04]  # Build for multiple Ubuntu versions
+        ubuntu_version: [20.04, 22.04, 24.04]  # Multiple Ubuntu versions
 
     steps:
       - name: Checkout repository
