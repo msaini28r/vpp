@@ -1,7 +1,7 @@
-# Use Ubuntu 22.04 as the base image
+# Use a specific Ubuntu base image
 FROM ubuntu:22.04
 
-# Install necessary dependencies and clean up to reduce image size
+# Install necessary packages, including dependencies for VPP
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -12,22 +12,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     make \
     python3 \
     git \
-  && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory to /vpp
+# Set working directory
 WORKDIR /vpp
 
-# Copy the .deb files into the container
+# Copy .deb package files from the build context
 COPY *.deb ./
 
-# Install the VPP and related packages using dpkg
+# Install the .deb packages
 RUN set -eux; \
     apt-get update && apt-get install -y -V ./*.deb; \
     dpkg-query -f '${Version}\n' -W vpp > /vpp/version; \
     rm -rf /var/lib/apt/lists/*;
 
-# Create the directory for logs
+# Create a log directory for VPP
 RUN mkdir -p /var/log/vpp
 
-# Command to start VPP when the container runs
+# Set the default command to start VPP with the appropriate configuration
 CMD ["/usr/bin/vpp", "-c", "/etc/vpp/startup.conf"]
