@@ -16,24 +16,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /vpp
 
-# Set build argument to choose installation method (default: apt)
-ARG VPP_INSTALL_METHOD=apt
+# Set build argument (default: deb)
+ARG VPP_INSTALL_METHOD=deb
 
-# Install VPP using APT if the user chooses 'apt'
-RUN if [ "$VPP_INSTALL_METHOD" = "apt" ]; then \
+# Try installing VPP from .deb packages first
+RUN if [ "$VPP_INSTALL_METHOD" = "deb" ]; then \
+      echo "Attempting to install VPP using .deb packages..."; \
+      curl -O https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp.deb/download.deb || export DEB_MISSING=true; \
+      curl -O https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-core.deb/download.deb || export DEB_MISSING=true; \
+      curl -O https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-dpdk.deb/download.deb || export DEB_MISSING=true; \
+      if [ "$DEB_MISSING" = "true" ]; then \
+          echo "Some .deb packages are missing, falling back to apt install"; \
+          export VPP_INSTALL_METHOD=apt; \
+      fi \
+    fi
+
+# If .deb files were found, install them; otherwise, use apt
+RUN if [ "$VPP_INSTALL_METHOD" = "deb" ]; then \
+      dpkg -i *.deb || apt-get install -f -y; \
+    else \
       echo "Using APT to install VPP..."; \
       echo "deb https://packagecloud.io/fdio/release/ubuntu jammy main" | tee /etc/apt/sources.list.d/fdio.list; \
       curl -fsSL https://packagecloud.io/fdio/release/gpgkey | apt-key add -; \
       apt-get update && apt-get install -y vpp vpp-plugin-core vpp-plugin-dpdk; \
-    fi
-
-# Install VPP using .deb packages if the user chooses 'deb'
-RUN if [ "$VPP_INSTALL_METHOD" = "deb" ]; then \
-      echo "Using .deb packages to install VPP..."; \
-      curl -O https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp.deb/download.deb; \
-      curl -O https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-core.deb/download.deb; \
-      curl -O https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-dpdk.deb/download.deb; \
-      dpkg -i *.deb || apt-get install -f -y; \
     fi
 
 # Extract VPP version and store it
