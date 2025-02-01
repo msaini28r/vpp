@@ -22,10 +22,9 @@ ARG VPP_INSTALL_METHOD=deb
 # Try installing .deb packages first
 RUN if [ "$VPP_INSTALL_METHOD" = "deb" ]; then \
       echo "Attempting to install VPP using .deb packages..."; \
-      curl -fSL -o vpp.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp.deb/download.deb" && \
-      curl -fSL -o vpp-plugin-core.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-core.deb/download.deb" && \
-      curl -fSL -o vpp-plugin-dpdk.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-dpdk.deb/download.deb"; \
-      \
+      curl -fSL -o vpp.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp_22.06.0_amd64.deb" && \
+      curl -fSL -o vpp-plugin-core.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-core_22.06.0_amd64.deb" && \
+      curl -fSL -o vpp-plugin-dpdk.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-dpdk_22.06.0_amd64.deb"; \
       if dpkg-deb --info vpp.deb > /dev/null 2>&1; then \
           echo "Valid .deb files found, proceeding with installation..."; \
           dpkg -i *.deb || apt-get install -f -y; \
