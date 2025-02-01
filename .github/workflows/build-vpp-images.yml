@@ -28,7 +28,7 @@ jobs:
     - name: "Checkout Repository"
       uses: actions/checkout@v3
       with:
-        path: vpp  # Checkout into 'vpp' directory
+        path: vpp  # Ensure repository is checked out into 'vpp' directory
 
     - name: "Print Debugging Info"
       run: |
@@ -39,7 +39,7 @@ jobs:
 
     - name: "Verify Dockerfile Exists"
       run: |
-        cd vpp
+        cd vpp/custom
         if [ ! -f Dockerfile ]; then
           echo "🚨 ERROR: Dockerfile not found in $(pwd). Check the repository structure."
           exit 1
@@ -53,7 +53,7 @@ jobs:
     - name: "Build Docker Image (${{ matrix.method }})"
       run: |
         cd vpp
-        docker build --build-arg VPP_INSTALL_METHOD=${{ matrix.method }} --tag "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}" .
+        docker build --build-arg VPP_INSTALL_METHOD=${{ matrix.method }} -f custom/Dockerfile -t "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}" .
 
     - name: "Publish Image to Docker Hub"
       if: github.event_name != 'pull_request'
