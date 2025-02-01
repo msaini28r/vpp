@@ -19,7 +19,7 @@ WORKDIR /vpp
 # Set build argument (default: deb)
 ARG VPP_INSTALL_METHOD=deb
 
-# Try installing VPP from .deb packages first
+# Download .deb packages if using .deb method
 RUN if [ "$VPP_INSTALL_METHOD" = "deb" ]; then \
       echo "Attempting to install VPP using .deb packages..."; \
       curl -O https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp.deb/download.deb || export DEB_MISSING=true; \

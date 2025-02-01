@@ -22,11 +22,28 @@ jobs:
       fail-fast: false
       matrix:
         tag: ['master', 'latest', '24.06', '24.02', '23.10', '23.06']
-        method: ['deb']  # Only test .deb, fallback is automatic
+        method: ['deb']  # Only testing .deb, fallback is automatic
 
     steps:
     - name: "Checkout Repository"
       uses: actions/checkout@v3
+      with:
+        path: vpp  # Checkout into 'vpp' directory
+
+    - name: "Print Debugging Info"
+      run: |
+        echo "Current directory: $(pwd)"
+        echo "GitHub Workspace: $GITHUB_WORKSPACE"
+        ls -lah
+        cd vpp && ls -lah
+
+    - name: "Verify Dockerfile Exists"
+      run: |
+        cd vpp
+        if [ ! -f Dockerfile ]; then
+          echo "🚨 ERROR: Dockerfile not found in $(pwd). Check the repository structure."
+          exit 1
+        fi
 
     - name: "Set Up Dependencies"
       run: |
@@ -35,12 +52,13 @@ jobs:
 
     - name: "Build Docker Image (${{ matrix.method }})"
       run: |
+        cd vpp
         docker build --build-arg VPP_INSTALL_METHOD=${{ matrix.method }} --tag "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}" .
-      working-directory: $GITHUB_WORKSPACE
 
     - name: "Publish Image to Docker Hub"
       if: github.event_name != 'pull_request'
       run: |
+        cd vpp
         export VPP_VERSION=$(docker run --rm "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}" cat /vpp/version | cut -d'~' -f1,2 | sed -e 's/~/./g')
         docker tag "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}" "$DOCKER_REPO:$VPP_VERSION-${{ matrix.method }}"
         docker images "$DOCKER_REPO"
