@@ -22,13 +22,13 @@ jobs:
       fail-fast: false
       matrix:
         tag: ['master', 'latest', '24.06', '24.02', '23.10', '23.06']
-        method: ['deb']  # Only testing .deb, fallback is automatic
+        method: ['deb']  # Only testing 'deb', fallback to 'apt' happens inside Dockerfile
 
     steps:
     - name: "Checkout Repository"
       uses: actions/checkout@v3
       with:
-        path: vpp  # Checkout into 'vpp' directory
+        path: vpp  # Ensure repository is checked out into the 'vpp' directory
 
     - name: "Print Debugging Info"
       run: |
