@@ -1,80 +1,67 @@
-name: Build VPP Images
+name: Build and Deploy VPP Docker Image
 
 on:
   push:
-    branches: 
-      - master
+    branches:
+      - main  # Trigger the workflow on push to the 'main' branch
   pull_request:
-    branches: 
-      - master
-  schedule:
-    - cron: '0 */12 * * *'
-  workflow_dispatch:
+    branches:
+      - main  # Trigger the workflow on PRs to the 'main' branch
 
 jobs:
-  build-vpp-images:
-    name: "VPP (${{ matrix.tag }}) - ${{ matrix.method }}"
-    runs-on: ubuntu-latest
-    env:
-      DOCKER_REPO: fdio/vpp
-      TAG: ${{ matrix.tag }}
+  build:
+    runs-on: ubuntu-22.04  # Default Ubuntu version for the job
+
     strategy:
-      fail-fast: false
       matrix:
-        tag: ['master', 'latest', '24.06', '24.02', '23.10', '23.06']
-        method: ['deb']  # Only testing 'deb', fallback to 'apt' happens inside Dockerfile
+        ubuntu-version: [20.04, 22.04, 23.04]  # Add multiple Ubuntu versions here
 
     steps:
-    - name: "Checkout Repository"
-      uses: actions/checkout@v3
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Cache Docker layers
+      uses: actions/cache@v2
       with:
-        path: vpp  # Ensure repository is checked out into the 'vpp' directory
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
 
-    - name: "Print Debugging Info"
+    - name: Build Docker image on Ubuntu ${{ matrix.ubuntu-version }}
       run: |
-        echo "Current directory: $(pwd)"
-        echo "GitHub Workspace: $GITHUB_WORKSPACE"
-        ls -lah
-        cd vpp && ls -lah
+        docker build --file Dockerfile --tag vpp-image-${{ matrix.ubuntu-version }} .
 
-    - name: "Verify Dockerfile Exists"
+    - name: Push Docker image to Docker Hub
       run: |
-        cd vpp/custom
-        if [ ! -f Dockerfile ]; then
-          echo "🚨 ERROR: Dockerfile not found in $(pwd). Check the repository structure."
-          exit 1
-        fi
+        docker tag vpp-image-${{ matrix.ubuntu-version }} your-dockerhub-username/vpp-image:${{ matrix.ubuntu-version }}
+        docker push your-dockerhub-username/vpp-image:${{ matrix.ubuntu-version }}
 
-    - name: "Set Up Dependencies"
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg iproute2 iputils-ping
+    - name: Clean up Docker
+      run: docker system prune -f
 
-    - name: "Build Docker Image (${{ matrix.method }})"
-      run: |
-        cd vpp
-        docker build --build-arg VPP_INSTALL_METHOD=${{ matrix.method }} -f custom/Dockerfile -t "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}" .
+  deploy:
+    runs-on: ubuntu-22.04  # Default Ubuntu version for deployment
 
-    - name: "Check Installed Packages and Debug"
-      run: |
-        cd vpp
-        docker run --rm "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}" bash -c "
-          echo 'Checking installed VPP packages...';
-          dpkg -l | grep vpp || echo '⚠️ No VPP packages found!';
-          cat /vpp/version || echo '⚠️ No version file found!';
-        "
+    strategy:
+      matrix:
+        ubuntu-version: [20.04, 22.04, 23.04]  # Add multiple Ubuntu versions here
 
-    - name: "Publish Image to Docker Hub"
-      if: github.event_name != 'pull_request'
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Pull Docker image
       run: |
-        cd vpp
-        export VPP_VERSION=$(docker run --rm "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}" cat /vpp/version | cut -d'~' -f1,2 | sed -e 's/~/./g')
-        docker tag "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}" "$DOCKER_REPO:$VPP_VERSION-${{ matrix.method }}"
-        docker images "$DOCKER_REPO"
-        if [ "$GITHUB_EVENT_NAME" == "schedule" ] && curl -sSflL "https://index.docker.io/v1/repositories/$DOCKER_REPO/tags/$VPP_VERSION-${{ matrix.method }}" >/dev/null; then
-          echo "Image $DOCKER_REPO:$VPP_VERSION-${{ matrix.method }} is already published."
-        else
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-          docker push "$DOCKER_REPO:$VPP_VERSION-${{ matrix.method }}"
-          docker push "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}"
-        fi
+        docker pull your-dockerhub-username/vpp-image:${{ matrix.ubuntu-version }}
+
+    - name: Run Docker container
+      run: |
+        docker run -d --name vpp-container-${{ matrix.ubuntu-version }} your-dockerhub-username/vpp-image:${{ matrix.ubuntu-version }}
+
+    - name: Verify VPP container is running
+      run: |
+        docker ps | grep vpp-container-${{ matrix.ubuntu-version }}

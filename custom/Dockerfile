@@ -1,56 +1,32 @@
+# Use the official Ubuntu as the base image
 FROM ubuntu:22.04
 
-# Install basic dependencies required for both methods
+# Set the working directory to /vpp
+WORKDIR /vpp
+
+# Install dependencies and setup the VPP installation repository
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    apt-transport-https \
     ca-certificates \
     curl \
     gnupg \
     iproute2 \
     iputils-ping \
+    lsb-release \
     build-essential \
-    make \
-    python3 \
-    git \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL https://packagecloud.io/install/repositories/fdio/release/script.deb.sh | bash
+
+# Install VPP (with the correct version)
+RUN curl -fsSL https://packagecloud.io/fdio/release/gpgkey | apt-key add - \
+    && apt-get update \
+    && apt-get install -y vpp=24.10-release vpp-plugin-core=24.10-release vpp-plugin-dpdk=24.10-release \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /vpp
-
-# Download .deb files if we are using the 'deb' method
-ARG VPP_INSTALL_METHOD=deb
-
-RUN if [ "$VPP_INSTALL_METHOD" = "deb" ]; then \
-      echo "Attempting to install VPP using .deb packages..."; \
-      curl -fSL -o vpp.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp_22.06.0_amd64.deb" && \
-      curl -fSL -o vpp-plugin-core.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-core_22.06.0_amd64.deb" && \
-      curl -fSL -o vpp-plugin-dpdk.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-dpdk_22.06.0_amd64.deb"; \
-      if dpkg-deb --info vpp.deb > /dev/null 2>&1; then \
-          echo "Valid .deb files found, proceeding with installation..."; \
-          dpkg -i *.deb || apt-get install -f -y; \
-      else \
-          echo "Downloaded .deb files are invalid! Falling back to apt install..."; \
-          rm -f *.deb; \
-          VPP_INSTALL_METHOD=apt; \
-      fi \
-    fi
-
-# If .deb files were invalid or not found, use apt to install VPP
-RUN if [ "$VPP_INSTALL_METHOD" = "apt" ]; then \
-      echo "Using APT to install VPP..."; \
-      echo "deb https://packagecloud.io/fdio/release/ubuntu jammy main" | tee /etc/apt/sources.list.d/fdio.list; \
-      curl -fsSL https://packagecloud.io/fdio/release/gpgkey | apt-key add -; \
-      apt-get update && apt-get install -y vpp vpp-plugin-core vpp-plugin-dpdk; \
-    fi
-
-# Extract VPP version and store it in /vpp/version
-RUN if dpkg-query -W vpp; then \
-      dpkg-query -f '${Version}\n' -W vpp > /vpp/version; \
-    else \
-      echo "VPP installation failed! Exiting..."; \
-      exit 1; \
-    fi
-
-# Setup log directory
+# Create a directory for logs
 RUN mkdir -p /var/log/vpp
 
+# Copy any local files or configurations to the container (if needed)
+# COPY . .
+
+# Set the default command to start VPP
 CMD ["/usr/bin/vpp", "-c", "/etc/vpp/startup.conf"]
