@@ -1,7 +1,8 @@
-# Use a specific Ubuntu base image
-FROM ubuntu:22.04
+# Build argument for Ubuntu version, default to 22.04
+ARG UBUNTU_VERSION=22.04
+FROM ubuntu:${UBUNTU_VERSION}
 
-# Install necessary packages, including dependencies for VPP
+# Install dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -9,7 +10,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iproute2 \
     iputils-ping \
     build-essential \
-    make \
     python3 \
     git \
     && rm -rf /var/lib/apt/lists/*
@@ -17,17 +17,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /vpp
 
-# Copy .deb package files from the build context
-COPY *.deb ./
-
-# Install the .deb packages
+# Download and install VPP
 RUN set -eux; \
-    apt-get update && apt-get install -y -V ./*.deb; \
-    dpkg-query -f '${Version}\n' -W vpp > /vpp/version; \
-    rm -rf /var/lib/apt/lists/*;
+    curl -s https://packagecloud.io/install/repositories/fdio/release/script.deb.sh | bash; \
+    apt-get update && apt-get install -y vpp vpp-plugin-core vpp-plugin-dpdk; \
+    dpkg-query -f '${Version}\n' -W vpp > /vpp/version
 
-# Create a log directory for VPP
+# Create logs directory
 RUN mkdir -p /var/log/vpp
 
-# Set the default command to start VPP with the appropriate configuration
+# Default command to run VPP
 CMD ["/usr/bin/vpp", "-c", "/etc/vpp/startup.conf"]
