@@ -10,12 +10,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /vpp
 
+# Copy all .deb files from the current directory to the /vpp directory
 COPY *.deb ./
 
+# Install the .deb files using dpkg and fix dependencies with apt-get
 RUN set -eux; \
-	apt-get update && apt-get install -y -V ./*.deb; \
-	dpkg-query -f '${Version}\n' -W vpp > /vpp/version; \
-	rm -rf /var/lib/apt/lists/*;
+    dpkg -i ./*.deb; \
+    apt-get install -f -y; \
+    dpkg-query -f '${Version}\n' -W vpp > /vpp/version; \
+    rm -rf /var/lib/apt/lists/*;
 
 RUN mkdir -p /var/log/vpp
 
