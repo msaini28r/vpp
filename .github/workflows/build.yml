@@ -1,10 +1,10 @@
 name: Build and Push Docker Image
 
 on:
-  pull_request:
+  push:
     branches:
       - master
-  push:
+  pull_request:
     branches:
       - master
   schedule:
@@ -17,50 +17,43 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DOCKER_REPO: yourdockerhubusername/vpp
-      REPO: ${{ matrix.repo }}
       TAG: ${{ matrix.tag }}
     strategy:
       fail-fast: false
       matrix:
         tag: ['master', 'latest', '24.06', '24.02', '23.10', '23.06']
         include:
-          - tag: 'master'
-            repo: 'master'
-          - tag: 'latest'
-            repo: 'release'
-          - tag: '24.06'
-            repo: '2406'
-          - tag: '24.02'
-            repo: '2402'
-          - tag: '23.10'
-            repo: '2310'
-          - tag: '23.06'
-            repo: '2306'
-
+        - tag: 'master'
+        - tag: 'latest'
+        - tag: '24.06'
+        - tag: '24.02'
+        - tag: '23.10'
+        - tag: '23.06'
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: "Checkout"
+      uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+    - name: "Set up Docker Buildx"
+      uses: docker/setup-buildx-action@v2
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: "Log in to Docker Hub"
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build image
-        run: |
-          env | sort
-          docker build --build-arg REPO="$REPO" --build-arg UBUNTU_VERSION=22.04 \
-            --tag "$DOCKER_REPO:$TAG" -f custom/Dockerfile .
-          docker run --rm "$DOCKER_REPO:$TAG" dpkg-query -f '${Version}' -W vpp
+    - name: "Build Docker image"
+      run: |
+        docker build --build-arg UBUNTU_VERSION=22.04 --tag "$DOCKER_REPO:$TAG" -f custom/Dockerfile .
+        docker run --rm "$DOCKER_REPO:$TAG" dpkg-query -f '${Version}' -W vpp
 
-      - name: Publish image
-        if: github.event_name != 'pull_request'
-        run: |
-          export VPP_VERSION=$(docker run --rm "$DOCKER_REPO:$TAG" cat /vpp/version | cut -d'~' -f1,2 | sed -e 's/~/./g')
-          docker tag "$DOCKER_REPO:$TAG" "$DOCKER_REPO:$VPP_VERSION"
-          docker images "$DOCKER_REPO"
-          if [ $GITHUB_EVENT_NAME == "schedule" ] && curl -sSflL "https://index.docker.io
+    - name: "Publish Docker image"
+      if: github.event_name != 'pull_request'
+      run: |
+        export VPP_VERSION=$(docker run --rm "$DOCKER_REPO:$TAG" cat /vpp/version | cut -d'~' -f1,2 | sed -e 's/~/./g')
+        docker tag "$DOCKER_REPO:$TAG" "$DOCKER_REPO:$VPP_VERSION"
+        docker images "$DOCKER_REPO"
+        docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+        docker push "$DOCKER_REPO:$VPP_VERSION"
+        docker push "$DOCKER_REPO:$TAG"
