@@ -1,6 +1,6 @@
 FROM ubuntu:22.04
 
-# Install basic dependencies required for both methods
+# Install dependencies required for both methods
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-transport-https \
     ca-certificates \
@@ -19,22 +19,25 @@ WORKDIR /vpp
 # Set build argument (default: deb)
 ARG VPP_INSTALL_METHOD=deb
 
-# Download .deb packages if using .deb method
+# Try installing .deb packages first
 RUN if [ "$VPP_INSTALL_METHOD" = "deb" ]; then \
       echo "Attempting to install VPP using .deb packages..."; \
-      curl -O https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp.deb/download.deb || export DEB_MISSING=true; \
-      curl -O https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-core.deb/download.deb || export DEB_MISSING=true; \
-      curl -O https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-dpdk.deb/download.deb || export DEB_MISSING=true; \
-      if [ "$DEB_MISSING" = "true" ]; then \
-          echo "Some .deb packages are missing, falling back to apt install"; \
-          export VPP_INSTALL_METHOD=apt; \
+      curl -fSL -o vpp.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp.deb/download.deb" && \
+      curl -fSL -o vpp-plugin-core.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-core.deb/download.deb" && \
+      curl -fSL -o vpp-plugin-dpdk.deb "https://packagecloud.io/fdio/release/packages/ubuntu/jammy/vpp-plugin-dpdk.deb/download.deb"; \
+      \
+      if dpkg-deb --info vpp.deb > /dev/null 2>&1; then \
+          echo "Valid .deb files found, proceeding with installation..."; \
+          dpkg -i *.deb || apt-get install -f -y; \
+      else \
+          echo "Downloaded .deb files are invalid! Falling back to apt install..."; \
+          rm -f *.deb; \
+          VPP_INSTALL_METHOD=apt; \
       fi \
     fi
 
-# If .deb files were found, install them; otherwise, use apt
-RUN if [ "$VPP_INSTALL_METHOD" = "deb" ]; then \
-      dpkg -i *.deb || apt-get install -f -y; \
-    else \
+# If .deb installation failed, use apt install
+RUN if [ "$VPP_INSTALL_METHOD" = "apt" ]; then \
       echo "Using APT to install VPP..."; \
       echo "deb https://packagecloud.io/fdio/release/ubuntu jammy main" | tee /etc/apt/sources.list.d/fdio.list; \
       curl -fsSL https://packagecloud.io/fdio/release/gpgkey | apt-key add -; \
@@ -42,7 +45,12 @@ RUN if [ "$VPP_INSTALL_METHOD" = "deb" ]; then \
     fi
 
 # Extract VPP version and store it
-RUN dpkg-query -f '${Version}\n' -W vpp > /vpp/version
+RUN if dpkg-query -W vpp; then \
+      dpkg-query -f '${Version}\n' -W vpp > /vpp/version; \
+    else \
+      echo "VPP installation failed! Exiting..."; \
+      exit 1; \
+    fi
 
 # Setup log directory
 RUN mkdir -p /var/log/vpp

@@ -28,7 +28,7 @@ jobs:
     - name: "Checkout Repository"
       uses: actions/checkout@v3
       with:
-        path: vpp  # Ensure repository is checked out into 'vpp' directory
+        path: vpp  # Checkout into 'vpp' directory
 
     - name: "Print Debugging Info"
       run: |
@@ -54,6 +54,15 @@ jobs:
       run: |
         cd vpp
         docker build --build-arg VPP_INSTALL_METHOD=${{ matrix.method }} -f custom/Dockerfile -t "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}" .
+
+    - name: "Check Installed Packages and Debug"
+      run: |
+        cd vpp
+        docker run --rm "$DOCKER_REPO:${{ matrix.tag }}-${{ matrix.method }}" bash -c "
+          echo 'Checking installed VPP packages...';
+          dpkg -l | grep vpp || echo '⚠️ No VPP packages found!';
+          cat /vpp/version || echo '⚠️ No version file found!';
+        "
 
     - name: "Publish Image to Docker Hub"
       if: github.event_name != 'pull_request'
