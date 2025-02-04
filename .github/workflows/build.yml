@@ -17,34 +17,22 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DOCKER_REPO: ligato/vpp
-      REPO: ${{ matrix.repo }}
       TAG: ${{ matrix.tag }}
     strategy:
       fail-fast: false
       matrix:
         tag: ['master', 'latest', '24.06', '24.02', '23.10', '23.06']
-        include:
-        - tag: 'master'
-          repo: 'master'
-        - tag: 'latest'
-          repo: 'release'
-        - tag: '24.06'
-          repo: '2406'
-        - tag: '24.02'
-          repo: '2402'
-        - tag: '23.10'
-          repo: '2310'
-        - tag: '23.06'
-          repo: '2306'
     
     steps:
     - name: "Checkout"
       uses: actions/checkout@v3
+      with:
+        ref: ${{ matrix.tag }}
 
     - name: "Build image"
       run: |
         env | sort
-        docker build --build-arg REPO="$REPO" --tag "$DOCKER_REPO:$TAG" .
+        docker build --tag "$DOCKER_REPO:$TAG" .
         docker run --rm "$DOCKER_REPO:$TAG" vppctl show version
 
     - name: "Publish image"
