@@ -46,7 +46,7 @@ jobs:
 
     - name: "Build Docker image"
       run: |
-        docker build --build-arg UBUNTU_VERSION=22.04 --tag "$DOCKER_REPO:$TAG" -f custom/Dockerfile .
+        docker build --build-arg UBUNTU_VERSION=22.04 --tag "$DOCKER_REPO:$TAG" .
         docker run --rm "$DOCKER_REPO:$TAG" dpkg-query -f '${Version}' -W vpp
 
     - name: "Publish Docker image"
