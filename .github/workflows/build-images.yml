@@ -49,12 +49,16 @@ jobs:
         docker build --build-arg UBUNTU_VERSION=22.04 --tag "$DOCKER_REPO:$TAG" .
         docker run --rm "$DOCKER_REPO:$TAG" dpkg-query -f '${Version}' -W vpp
 
-    - name: "Publish Docker image"
+    - name: "Publish image"
       if: github.event_name != 'pull_request'
       run: |
         export VPP_VERSION=$(docker run --rm "$DOCKER_REPO:$TAG" cat /vpp/version | cut -d'~' -f1,2 | sed -e 's/~/./g')
         docker tag "$DOCKER_REPO:$TAG" "$DOCKER_REPO:$VPP_VERSION"
         docker images "$DOCKER_REPO"
-        docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-        docker push "$DOCKER_REPO:$VPP_VERSION"
-        docker push "$DOCKER_REPO:$TAG"
+        if [ $GITHUB_EVENT_NAME == "schedule" ] && curl -sSflL "https://docker.io/msaini28r/vpp/$DOCKER_REPO/tags/$VPP_VERSION" >/dev/null; then
+          echo "Image $DOCKER_REPO:$VPP_VERSION has already been published."
+        else
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker push "$DOCKER_REPO:$VPP_VERSION"
+          docker push "$DOCKER_REPO:$TAG"
+        fi
