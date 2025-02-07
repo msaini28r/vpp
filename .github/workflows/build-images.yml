@@ -1,5 +1,4 @@
 name: Build Images
-
 on:
   pull_request:
     branches: 
@@ -16,29 +15,41 @@ jobs:
     name: "VPP ${{ matrix.tag }}"
     runs-on: ubuntu-latest
     env:
-      DOCKER_REPO: ligato/vpp
+      DOCKER_REPO: your-dockerhub-username/vpp
+      REPO: ${{ matrix.repo }}
       TAG: ${{ matrix.tag }}
     strategy:
       fail-fast: false
       matrix:
         tag: ['master', 'latest', '24.06', '24.02', '23.10', '23.06']
-    
+        include:
+        - tag: 'master'
+          repo: 'master'
+        - tag: 'latest'
+          repo: 'release'
+        - tag: '24.06'
+          repo: '2406'
+        - tag: '24.02'
+          repo: '2402'
+        - tag: '23.10'
+          repo: '2310'
+        - tag: '23.06'
+          repo: '2306'
+
     steps:
     - name: "Checkout"
       uses: actions/checkout@v3
-      with:
-        ref: ${{ matrix.tag }}
 
     - name: "Build image"
       run: |
         env | sort
-        docker build --tag "$DOCKER_REPO:$TAG" .
-        docker run --rm "$DOCKER_REPO:$TAG" vppctl show version
+        docker build --build-arg REPO="$REPO" --tag "$DOCKER_REPO:$TAG" .
+        docker run --rm "$DOCKER_REPO:$TAG" dpkg-query -f '${Version}' -W vpp
 
     - name: "Publish image"
       if: github.event_name != 'pull_request'
       run: |
-        export VPP_VERSION=$(docker run --rm "$DOCKER_REPO:$TAG" vppctl show version | grep 'Version:' | awk '{print $2}')
+        export VPP_VERSION=$(docker run --rm "$DOCKER_REPO:$TAG" cat /vpp/version | cut -d'~' -f1,2 | sed -e 's/~/./g')
         docker tag "$DOCKER_REPO:$TAG" "$DOCKER_REPO:$VPP_VERSION"
         docker images "$DOCKER_REPO"
         if [ $GITHUB_EVENT_NAME == "schedule" ] && curl -sSflL "https://index.docker.io/v1/repositories/$DOCKER_REPO/tags/$VPP_VERSION" >/dev/null; then
