@@ -15,7 +15,7 @@ jobs:
     name: "VPP ${{ matrix.tag }}"
     runs-on: ubuntu-latest
     env:
-      DOCKER_REPO: msaini28r/vpp
+      DOCKER_REPO: msaini0r/vpp
       TAG: ${{ matrix.tag }}
     strategy:
       fail-fast: false
