@@ -950,7 +950,7 @@ check-dpdk-mlx:
 
 REPO?=release
 VPP_VERSION?=
-DOCKER_REPO?=vpp
+DOCKER_REPO?=msaini28r/vpp
 TAG?=latest
 IMAGE_TAG=$(DOCKER_REPO):$(TAG)
 
