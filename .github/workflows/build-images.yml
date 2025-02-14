@@ -21,6 +21,13 @@ jobs:
       fail-fast: false
       matrix:
         tag: ['master', 'latest', '24.06', '24.02', '23.10', '23.06']
+        include:
+        - tag: 'master'
+        - tag: 'latest'
+        - tag: '24.06'
+        - tag: '24.02'
+        - tag: '23.10'
+        - tag: '23.06'
     
     steps:
     - name: "Checkout"
@@ -35,14 +42,9 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: "Run get-vpp.sh"
-      run: |
-        chmod +x .github/workflows/get-vpp.sh
-        .github/workflows/get-vpp.sh
-
     - name: "Build Docker image"
       run: |
-        docker build --build-arg UBUNTU_VERSION=22.04 --tag "$DOCKER_REPO:$TAG" -f .github/workflows/Dockerfile .
+        docker build --build-arg UBUNTU_VERSION=22.04 --tag "$DOCKER_REPO:$TAG" .
         docker run --rm "$DOCKER_REPO:$TAG" dpkg-query -f '${Version}' -W vpp
 
     - name: "Publish image"

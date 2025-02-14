@@ -8,7 +8,6 @@ function get_vpp () {
     set -exuo pipefail
     trap '' PIPE
 
-    # Run script without sudo
     curl -sS "${REPO_URL}"/script.deb.sh | bash || {
         die "Packagecloud FD.io repo fetch failed."
     }
