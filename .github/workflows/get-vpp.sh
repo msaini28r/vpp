@@ -3,7 +3,7 @@
 [ -z "$REPO_URL" ] && REPO_URL="https://packagecloud.io/install/repositories/fdio/${REPO:=release}"
 
 function get_vpp () {
-    ls "*.deb" 2>/dev/null && { die "remove existing *.deb files"; }
+    ls ".github/workflows/*.deb" 2>/dev/null && { die "remove existing *.deb files"; }
 
     set -exuo pipefail
     trap '' PIPE
