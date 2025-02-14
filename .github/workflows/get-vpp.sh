@@ -3,12 +3,13 @@
 [ -z "$REPO_URL" ] && REPO_URL="https://packagecloud.io/install/repositories/fdio/${REPO:=release}"
 
 function get_vpp () {
-    ls ".github/workflows/*.deb" 2>/dev/null && { die "remove existing *.deb files"; }
+    ls "*.deb" 2>/dev/null && { die "remove existing *.deb files"; }
 
     set -exuo pipefail
     trap '' PIPE
 
-    curl -sS "${REPO_URL}"/script.deb.sh | bash || {
+    # Ensure we run package installation as sudo
+    curl -sS "${REPO_URL}"/script.deb.sh | sudo bash || {
         die "Packagecloud FD.io repo fetch failed."
     }
 
@@ -29,7 +30,7 @@ function get_vpp () {
     done
     set -x
 
-    apt-get -y download "${artifacts[@]}" || die "Download VPP artifacts failed."
+    sudo apt-get -y download "${artifacts[@]}" || die "Download VPP artifacts failed."
 }
 
 function die () {
