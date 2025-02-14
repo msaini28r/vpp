@@ -8,8 +8,8 @@ function get_vpp () {
     set -exuo pipefail
     trap '' PIPE
 
-    # Ensure we run package installation as sudo
-    curl -sS "${REPO_URL}"/script.deb.sh | sudo bash || {
+    # Run script without sudo
+    curl -sS "${REPO_URL}"/script.deb.sh | bash || {
         die "Packagecloud FD.io repo fetch failed."
     }
 
@@ -30,7 +30,7 @@ function get_vpp () {
     done
     set -x
 
-    sudo apt-get -y download "${artifacts[@]}" || die "Download VPP artifacts failed."
+    apt-get -y download "${artifacts[@]}" || die "Download VPP artifacts failed."
 }
 
 function die () {
